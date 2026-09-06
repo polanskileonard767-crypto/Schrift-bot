@@ -10,24 +10,21 @@
 <body>
 <main class="app">
 <header>
-  <div><span class="eyebrow">SCHRIFTBOT · V1.3</span><h1>Deine Schrift. Dein Text.</h1><p>Schreibe jedes Zeichen einmal. Danach setzt SchriftBot deine Handschrift zu neuen Texten zusammen.</p></div>
-  <button id="downloadTemplate" class="ghost">✍️ Vorlage</button>
+  <div><span class="eyebrow">SCHRIFTBOT · V2</span><h1>Deine Schrift. Dein Text.</h1><p>Schreibe dein Alphabet einmal frei mit dem S Pen. SchriftBot trennt die Zeichen automatisch und setzt daraus neue Texte zusammen.</p></div>
 </header>
-<section class="steps"><div class="step active"><b>1</b><span>Zeichen lernen</span></div><div class="step"><b>2</b><span>Text eingeben</span></div><div class="step"><b>3</b><span>Exportieren</span></div></section>
+<section class="steps"><div class="step active"><b>1</b><span>Handschrift lernen</span></div><div class="step"><b>2</b><span>Text eingeben</span></div><div class="step"><b>3</b><span>Exportieren</span></div></section>
 <section class="card sample-task">
-  <h2>✍️ Handschrift-Vorlage</h2>
-  <p class="muted">Schreibe jedes Zeichen genau in sein eigenes Kästchen. Das funktioniert direkt auf der Website oder nach dem Export in Notability.</p>
-  <div class="template-tabs"><button id="webMode" class="primary">Direkt auf der Website</button><button id="notabilityMode" class="ghost">📝 Für Notability</button></div>
-  <div id="writingGrid" class="writing-grid"></div>
-  <div class="template-actions"><button id="downloadNotability" class="ghost">📝 Notability-Vorlage speichern</button><button id="clearWriting" class="ghost">Alles löschen</button></div>
-  <p class="hint">💡 Auf Samsung: mit dem S Pen schreiben. Auf iPad: Vorlage in Notability öffnen und mit Apple Pencil schreiben.</p>
-</section>
-<section class="card">
-  <h2>1. Fertige Vorlage hochladen</h2>
-  <p class="muted">Lade einen Screenshot, ein Foto oder eine exportierte Notability-PDF/PNG hoch.</p>
-  <label class="upload" id="dropZone"><input id="sampleInput" type="file" accept="image/*,.pdf"><span class="upload-icon">↑</span><strong>Vorlage auswählen</strong><small>PNG, JPG, WEBP oder PDF · direkt auf Tablet/iPad</small></label>
-  <div class="preview-wrap hidden" id="previewWrap"><canvas id="sampleCanvas"></canvas><div class="sample-status" id="sampleStatus">Vorlage geladen</div></div>
+  <h2>✍️ Handschrift aufnehmen</h2>
+  <p class="muted">Keine Kästchen mehr. Schreibe die Zeichen auf die großen Linien und lasse zwischen jedem Zeichen etwas Platz.</p>
+  <div class="character-guide">
+    <div><strong>Großbuchstaben</strong><span>ABCDEFGHIJKLMNOPQRSTUVWXYZ</span></div>
+    <div><strong>Kleinbuchstaben</strong><span>abcdefghijklmnopqrstuvwxyz</span></div>
+    <div><strong>Zahlen & Zeichen</strong><span>0123456789 . , ! ? : ; - + = ( )</span></div>
+  </div>
+  <canvas id="writingCanvas" aria-label="Handschrift-Schreibfläche"></canvas>
+  <div class="canvas-actions"><button id="analyzeWriting" class="primary">🔎 Handschrift analysieren</button><button id="clearWriting" class="ghost">Alles löschen</button></div>
   <div class="analysis"><span class="analysis-dot"></span><span id="analysisText">Noch keine Handschrift gelernt.</span></div>
+  <p class="hint">💡 Schreibe möglichst jedes Zeichen einzeln und mit einem kleinen Abstand. Bei i, j und ß dürfen die Punkte/Striche dazugehören.</p>
 </section>
 <section class="card">
   <h2>2. Text</h2>
@@ -36,9 +33,9 @@
   <button id="generate" class="primary">✍️ Mit meiner Schrift erzeugen</button>
 </section>
 <section class="card">
-  <div class="result-head"><div><h2>3. Ergebnis</h2><p class="muted">Deine gelernten Zeichen werden zu deinem Text zusammengesetzt.</p></div><div class="actions"><button id="clearResult" class="ghost">Löschen</button><button id="downloadSvg" class="primary" disabled>SVG speichern</button><button id="downloadPng" class="ghost" disabled>PNG speichern</button><button id="copyNotes" class="ghost" disabled>📋 Für Notizen kopieren</button></div></div>
+  <div class="result-head"><div><h2>3. Ergebnis</h2><p class="muted">Die gelernten Glyphen werden automatisch zu deinem Text zusammengesetzt.</p></div><div class="actions"><button id="clearResult" class="ghost">Löschen</button><button id="downloadSvg" class="primary" disabled>SVG speichern</button><button id="downloadPng" class="ghost" disabled>PNG speichern</button><button id="copyNotes" class="ghost" disabled>📋 Für Notizen kopieren</button></div></div>
   <div id="paper" class="paper empty"><span>Noch kein Ergebnis</span></div>
-  <p class="hint">💡 Für Samsung Notes kannst du das Ergebnis kopieren oder als PNG speichern. Für Notability eignet sich die exportierte Vorlage.</p>
+  <p class="hint">💡 PNG kannst du direkt in Samsung Notes einfügen. SVG bleibt als Grafik editierbar, wird aber nicht automatisch zu nativen S Pen-Strichen.</p>
 </section>
 </main>
 <script src="app.js"></script>
