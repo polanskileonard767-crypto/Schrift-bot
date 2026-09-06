@@ -5,7 +5,7 @@ let sampleImage=null,generatedSvg=null,glyphs=new Map();
 function bindRange(id,out){const e=$(id),o=$(out);const f=()=>o.value=e.value;e.addEventListener('input',f);f()}
 bindRange('#size','#sizeOut');bindRange('#lineHeight','#lineOut');bindRange('#variation','#varOut');
 
-$('#copySample').onclick=async()=>{try{await navigator.clipboard.writeText(sampleText)}catch{const a=document.createElement('textarea');a.value=sampleText;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}$('#copySample').textContent='✓ Kopiert';setTimeout(()=>$('#copySample').textContent='Text kopieren',1600)};
+$('#copySample').onclick=async()=>{const text=sampleText;try{await navigator.clipboard.writeText(text)}catch{const a=document.createElement('textarea');a.value=text;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}$('#copySample').textContent='✓ Kopiert';setTimeout(()=>$('#copySample').textContent='Text kopieren',1600)};
 
 const sampleInput=$('#sampleInput');
 sampleInput.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)loadSample(f)});
@@ -15,83 +15,147 @@ const dz=$('#dropZone');
 dz.addEventListener('drop',e=>{const f=e.dataTransfer?.files?.[0];if(f?.type?.startsWith('image/'))loadSample(f)});
 
 function loadSample(file){
-  if(!file||!file.size)return uploadError('Die Datei ist leer oder konnte nicht gelesen werden.');
-  $('#previewWrap').classList.remove('hidden');$('#sampleStatus').textContent='Bild wird geladen…';$('#analysisText').textContent='Handschrift wird analysiert…';
+  if(!file||file.size===0){showUploadError('Die Datei ist leer oder konnte nicht gelesen werden.');return}
+  $('#previewWrap').classList.remove('hidden');
+  $('#sampleStatus').textContent='Bild wird geladen…';
+  $('#analysisText').textContent='Handschrift wird analysiert…';
   const reader=new FileReader();
-  reader.onload=()=>{const img=new Image();img.onload=()=>{sampleImage=img;const c=$('#sampleCanvas'),ctx=c.getContext('2d',{willReadFrequently:true});const scale=Math.min(1,1100/img.width);c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);$('#sampleStatus').textContent=`✓ ${img.width}×${img.height} · Handschrift wird gelernt…`;setTimeout(analyzeSample,20)};img.onerror=()=>uploadError('Dieses Bildformat kann der Browser nicht öffnen. Bitte JPG oder PNG verwenden.');img.src=reader.result};
-  reader.onerror=()=>uploadError('Das Bild konnte nicht gelesen werden. Bitte erneut auswählen.');reader.readAsDataURL(file);
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      sampleImage=img;
+      const c=$('#sampleCanvas'),ctx=c.getContext('2d',{willReadFrequently:true});
+      const scale=Math.min(1,1100/img.width);
+      c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));
+      ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
+      $('#sampleStatus').textContent=`✓ ${img.width}×${img.height} · Handschrift wird gelernt…`;
+      analyzeSample();
+    };
+    img.onerror=()=>showUploadError('Dieses Bildformat kann der Browser nicht öffnen. Bitte als JPG oder PNG auswählen.');
+    img.src=reader.result;
+  };
+  reader.onerror=()=>showUploadError('Das Bild konnte nicht gelesen werden. Bitte erneut auswählen.');
+  reader.readAsDataURL(file);
 }
-function uploadError(msg){$('#previewWrap').classList.remove('hidden');$('#sampleStatus').textContent='⚠️ Bild konnte nicht verarbeitet werden';$('#analysisText').textContent=msg;sampleImage=null;glyphs.clear()}
 
-// The sample text is known, so we use its word/character order to cut the user's actual handwriting.
-// This is much more reliable than treating every connected ink blob as a letter.
+function showUploadError(message){$('#previewWrap').classList.remove('hidden');$('#sampleStatus').textContent='⚠️ Upload fehlgeschlagen';$('#analysisText').textContent=message;sampleImage=null;glyphs=new Map()}
+
 function analyzeSample(){
   if(!sampleImage)return;
   glyphs=new Map();
-  const canvas=document.createElement('canvas');const scale=Math.min(1,1800/sampleImage.width);canvas.width=Math.max(1,Math.round(sampleImage.width*scale));canvas.height=Math.max(1,Math.round(sampleImage.height*scale));
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(sampleImage,0,0,canvas.width,canvas.height);
-  const {data,width,height}=ctx,ink=new Uint8Array(width*height);
-  for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=(y*width+x)*4,lum=.299*data[i]+.587*data[i+1]+.114*data[i+2];ink[y*width+x]=lum<215?1:0}
-
-  const rows=findRows(ink,width,height);
-  const expectedLines=sampleText.split('\n');
-  const bands=matchRows(rows,expectedLines.length);
-  let learned=0;
-  bands.forEach((band,lineIndex)=>{
-    const expected=expectedLines[lineIndex]||'';
-    if(!expected)return;
-    const words=[...expected.matchAll(/\S+/g)];
-    const wordBoxes=findWordBoxes(ink,width,band[0],band[1]);
-    if(words.length&&wordBoxes.length){
-      const n=Math.min(words.length,wordBoxes.length);
-      for(let wi=0;wi<n;wi++){
-        const word=words[wi][0],box=wordBoxes[wi];
-        learnWord(canvas,word,box[0],box[1],band[0],band[1]);
-      }
-    }else{
-      learnLine(canvas,expected,band[0],band[1],ink,width);
-    }
-  });
-  for(const list of glyphs.values())learned+=list.length;
-  const unique=glyphs.size;
-  $('#sampleStatus').textContent=`✓ ${unique} Zeichen gelernt`;
-  $('#analysisText').textContent=learned?`Deine Handschrift wurde übernommen: ${unique} verschiedene Zeichen. Beim Erzeugen werden echte Ausschnitte deiner Schrift verwendet.`:'Ich konnte die Schriftprobe nicht sauber erkennen. Bitte das Foto gerade, hell und vollständig aufnehmen.';
-}
-
-function findRows(ink,w,h){const rows=[];let active=false,s=0;for(let y=0;y<h;y++){let n=0;for(let x=0;x<w;x++)n+=ink[y*w+x];const hit=n>Math.max(3,w*.003);if(hit&&!active){s=y;active=true}if(active&&(!hit||y===h-1)){const e=y-(hit?0:1);if(e-s>=4)rows.push([s,e]);active=false}}const out=[];for(const r of rows){const last=out.at(-1);if(last&&r[0]-last[1]<Math.max(12,(r[1]-r[0])*.7))last[1]=r[1];else out.push(r)}return out}
-function matchRows(rows,count){if(rows.length===count)return rows;if(rows.length>count){return Array.from({length:count},(_,i)=>{const a=Math.floor(i*rows.length/count),b=Math.max(a,Math.floor((i+1)*rows.length/count)-1);return[rows[a][0],rows[b][1]]})}return rows}
-
-function findWordBoxes(ink,w,y0,y1){
-  const xs=[];for(let x=0;x<w;x++){let n=0;for(let y=y0;y<=y1;y++)n+=ink[y*w+x];xs.push(n)}
-  const active=[];let start=-1;const gap=Math.max(3,Math.round((y1-y0)*.12));let empty=0;
-  for(let x=0;x<w;x++){
-    if(xs[x]>0){if(start<0)start=x;empty=0}else if(start>=0){empty++;if(empty>=gap){active.push([start,x-empty]);start=-1;empty=0}}
+  const src=document.createElement('canvas');
+  const scale=Math.min(1,1800/sampleImage.width);
+  src.width=Math.max(1,Math.round(sampleImage.width*scale));src.height=Math.max(1,Math.round(sampleImage.height*scale));
+  const ctx=src.getContext('2d',{willReadFrequently:true});ctx.fillStyle='white';ctx.fillRect(0,0,src.width,src.height);ctx.drawImage(sampleImage,0,0,src.width,src.height);
+  const {data,width,height}=ctx.getImageData(0,0,src.width,src.height);
+  const ink=new Uint8Array(width*height),rowSum=new Uint32Array(height);
+  for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=(y*width+x)*4,lum=.299*data[i]+.587*data[i+1]+.114*data[i+2];const v=lum<220?1:0;ink[y*width+x]=v;rowSum[y]+=v}
+  // Find the six handwritten lines using horizontal ink density. Small gaps inside letters are ignored.
+  const lineHits=[];const rowThreshold=Math.max(3,Math.floor(width*.002));let on=false,start=0;
+  for(let y=0;y<height;y++){
+    const hit=rowSum[y]>rowThreshold;
+    if(hit&&!on){start=y;on=true}
+    if((!hit||y===height-1)&&on){const end=y-(hit?0:1);if(end-start>=3)lineHits.push([start,end]);on=false}
   }
-  if(start>=0)active.push([start,w-1]);
-  if(active.length<2)return active;
-  const widths=active.map(a=>a[1]-a[0]+1).sort((a,b)=>a-b);const med=widths[Math.floor(widths.length/2)]||20;
-  const merged=[];for(const b of active){const last=merged.at(-1);if(last&&b[0]-last[1]<Math.max(6,med*.18))last[1]=b[1];else merged.push(b)}
-  return merged.filter(b=>b[1]-b[0]>2);
+  const lines=mergeLineBands(lineHits);
+  const expectedLines=sampleText.split('\n');
+  const bands=chooseLineBands(lines,expectedLines.length,height);
+  let total=0;
+  for(let li=0;li<expectedLines.length;li++){
+    const text=[...expectedLines[li]];
+    const band=bands[li];
+    if(!band)continue;
+    const usable=text.filter(ch=>ch!==' ');
+    if(!usable.length)continue;
+    const segments=segmentKnownLine(ink,width,height,band,text);
+    for(let i=0;i<usable.length;i++){
+      const ch=usable[i],seg=segments[i];
+      if(!seg)continue;
+      const crop=makeInkCrop(src,seg[0],band[0],seg[1],band[1]);
+      if(!crop)continue;
+      if(!glyphs.has(ch))glyphs.set(ch,[]);
+      glyphs.get(ch).push(crop);total++;
+    }
+  }
+  // Add smart aliases for umlauts and punctuation so generated text stays handwritten whenever possible.
+  addAliases();
+  const unique=glyphs.size;
+  $('#sampleStatus').textContent=`✓ ${unique} Handschrift-Zeichen gelernt`;
+  $('#analysisText').textContent=total?`Handschrift gelernt: ${unique} Zeichen. Beim Erzeugen werden echte Ausschnitte deiner Probe verwendet.`:'Die Handschrift konnte nicht erkannt werden. Bitte ein scharfes Foto mit weißem Hintergrund und dunkler Schrift hochladen.';
 }
 
-function charWeight(ch){if('ilI.,:;!|'.includes(ch))return .38;if('mwMW@'.includes(ch))return 1.25;if('ftrj'.includes(ch))return .72;return 1}
-function learnWord(canvas,word,x0,x1,y0,y1){
-  const chars=[...word];const weights=chars.map(charWeight),sum=weights.reduce((a,b)=>a+b,0);let x=x0;
-  chars.forEach((ch,i)=>{const nx=i===chars.length-1?x1:Math.round(x+(x1-x0+1)*weights[i]/sum);const crop=makeCrop(canvas,x,y0,nx,y1);if(crop){if(!glyphs.has(ch))glyphs.set(ch,[]);glyphs.get(ch).push(crop)}x=nx+1});
+function mergeLineBands(lines){
+  if(!lines.length)return[];
+  const out=[lines[0].slice()];
+  for(let i=1;i<lines.length;i++){const prev=out[out.length-1],cur=lines[i];const gap=cur[0]-prev[1];const h=prev[1]-prev[0]+1;if(gap<Math.max(12,h*.65))prev[1]=cur[1];else out.push(cur.slice())}
+  return out;
 }
-function learnLine(canvas,line,y0,y1,ink,w){const chars=[...line];const nonSpace=chars.filter(c=>c!==' ');if(!nonSpace.length)return;let min=w,max=-1;for(let x=0;x<w;x++){for(let y=y0;y<=y1;y++)if(ink[y*w+x]){min=Math.min(min,x);max=Math.max(max,x);break}}if(max<min)return;const weights=nonSpace.map(charWeight),sum=weights.reduce((a,b)=>a+b,0);let x=min,k=0;for(const ch of chars){if(ch===' '){x+=(max-min)*.035;continue}const nx=k===nonSpace.length-1?max:Math.round(x+(max-min+1)*weights[k]/sum);const crop=makeCrop(canvas,x,y0,nx,y1);if(crop){if(!glyphs.has(ch))glyphs.set(ch,[]);glyphs.get(ch).push(crop)}x=nx+1;k++}}
+function chooseLineBands(lines,count,height){
+  if(lines.length===count)return lines;
+  if(lines.length>count){
+    const out=[];for(let i=0;i<count;i++){const a=Math.floor(i*lines.length/count),b=Math.max(a,Math.floor((i+1)*lines.length/count)-1);out.push([lines[a][0],lines[b][1]])}return out;
+  }
+  // If a line was not detected, divide the image into equal horizontal bands.
+  const margin=Math.round(height*.03),usable=Math.max(1,height-margin*2),out=[];
+  for(let i=0;i<count;i++){const a=margin+Math.round(usable*i/count),b=margin+Math.round(usable*(i+1)/count)-1;out.push([a,b])}return out;
+}
 
-function makeCrop(src,x0,y0,x1,y1){const pad=6,w=Math.max(3,x1-x0+1),h=Math.max(3,y1-y0+1),c=document.createElement('canvas');c.width=w+pad*2;c.height=h+pad*2;const ctx=c.getContext('2d');ctx.clearRect(0,0,c.width,c.height);ctx.drawImage(src,x0,y0,w,h,pad,pad,w,h);const p=ctx.getImageData(0,0,c.width,c.height),d=p.data;for(let i=0;i<d.length;i+=4){const lum=.299*d[i]+.587*d[i+1]+.114*d[i+2];if(lum>235)d[i+3]=0;else d[i+3]=Math.max(0,Math.min(255,Math.round((235-lum)*1.8)))}ctx.putImageData(p,0,0);return c.toDataURL('image/png')}
+function segmentKnownLine(ink,width,height,band,text){
+  const chars=text.filter(ch=>ch!==' ');if(!chars.length)return[];
+  const y0=Math.max(0,band[0]),y1=Math.min(height-1,band[1]);
+  const xs=new Uint32Array(width);
+  for(let x=0;x<width;x++)for(let y=y0;y<=y1;y++)xs[x]+=ink[y*width+x];
+  let left=0;while(left<width&&xs[left]===0)left++;
+  let right=width-1;while(right>left&&xs[right]===0)right--;
+  if(right<=left)return[];
+  // Find low-ink valleys. These are better character boundaries than raw connected components because letters like i/j split vertically.
+  const valleys=[];let inValley=false,vs=0;
+  const valleyThreshold=Math.max(1,Math.floor((y1-y0+1)*.025));
+  for(let x=left;x<=right;x++){
+    const low=xs[x]<=valleyThreshold;
+    if(low&&!inValley){vs=x;inValley=true}
+    if((!low||x===right)&&inValley){const ve=x-(low?0:1);if(ve-vs>=2)valleys.push([vs,ve]);inValley=false}
+  }
+  const gaps=[];for(const v of valleys){if(v[0]>left+2&&v[1]<right-2)gaps.push(v)}
+  // Start with valley-based boundaries, then fall back to proportional slots if the photo is too tightly written.
+  const boundaries=[];
+  for(const g of gaps){const center=Math.round((g[0]+g[1])/2);if(!boundaries.length||center-boundaries[boundaries.length-1]>3)boundaries.push(center)}
+  const wanted=chars.length-1;
+  let cuts=[];
+  if(boundaries.length>=wanted){
+    // Select the valleys closest to evenly distributed expected character positions.
+    for(let i=1;i<=wanted;i++){const target=left+(right-left)*i/chars.length;let best=boundaries[0],bd=Math.abs(best-target);for(const b of boundaries){const d=Math.abs(b-target);if(d<bd){bd=d;best=b}}cuts.push(best)}
+    cuts=[...new Set(cuts)].sort((a,b)=>a-b);
+  }else{
+    cuts=[];for(let i=1;i<chars.length;i++)cuts.push(Math.round(left+(right-left)*i/chars.length));
+  }
+  const seg=[];let s=left;
+  for(const c of cuts){seg.push([s,c-1]);s=c+1}
+  seg.push([s,right]);
+  // Ensure exactly one segment per non-space character.
+  if(seg.length!==chars.length){seg.length=0;for(let i=0;i<chars.length;i++)seg.push([Math.round(left+(right-left)*i/chars.length),Math.round(left+(right-left)*(i+1)/chars.length)-1])}
+  return seg;
+}
 
-$('#downloadTemplate').onclick=()=>{downloadBlob(new Blob([makeTemplate()],{type:'image/svg+xml'}),'schriftbot-vorlage.svg')};
-function makeTemplate(){const lines=sampleText.split('\n'),w=1500,h=lines.length*110+100;let s=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="white"/><style>text{font-family:Arial;fill:#555}.guide{stroke:#dfe3ea}</style>`;lines.forEach((line,i)=>{const y=70+i*110;s+=`<text x="35" y="${y-35}" font-size="13">Zeile ${i+1}: Schreibe genau diese Zeile auf die Linie</text><line class="guide" x1="35" y1="${y+12}" x2="${w-35}" y2="${y+12}"/><text x="35" y="${y}" font-size="17">${esc(line)}</text>`});return s+'</svg>'}
+function makeInkCrop(src,x0,y0,x1,y1){
+  x0=Math.max(0,Math.floor(x0));y0=Math.max(0,Math.floor(y0));x1=Math.min(src.width-1,Math.ceil(x1));y1=Math.min(src.height-1,Math.ceil(y1));
+  const w=Math.max(2,x1-x0+1),h=Math.max(2,y1-y0+1),pad=4,c=document.createElement('canvas');c.width=w+pad*2;c.height=h+pad*2;
+  const ctx=c.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(src,x0,y0,w,h,pad,pad,w,h);
+  return c.toDataURL('image/png');
+}
+function addGlyphAlias(from,to){const a=glyphs.get(from);if(a?.length&&!glyphs.has(to))glyphs.set(to,a)}
+function addAliases(){addGlyphAlias('a','ä');addGlyphAlias('o','ö');addGlyphAlias('u','ü');addGlyphAlias('A','Ä');addGlyphAlias('O','Ö');addGlyphAlias('U','Ü');addGlyphAlias('s','ß');addGlyphAlias('.','·');addGlyphAlias(',','‚')}
 
-$('#generate').onclick=()=>{const text=$('#textInput').value.trim();if(!text)return alert('Bitte zuerst Text eingeben.');if(!sampleImage)return alert('Bitte zuerst deine Handschriftprobe hochladen.');if(!glyphs.size)return alert('Die Handschriftprobe wurde noch nicht erkannt. Bitte erneut hochladen.');generatedSvg=renderText(text);const paper=$('#paper');paper.classList.remove('empty');paper.innerHTML='';paper.appendChild(generatedSvg);$('#downloadSvg').disabled=false;$('#downloadPng').disabled=false;document.querySelectorAll('.step')[0].classList.remove('active');document.querySelectorAll('.step')[1].classList.add('active');document.querySelectorAll('.step')[2].classList.add('active');wireDelete(generatedSvg)};
+$('#downloadTemplate').onclick=()=>{const svg=makeTemplate();downloadBlob(new Blob([svg],{type:'image/svg+xml'}),'schriftbot-vorlage.svg')};
+function makeTemplate(){const lines=sampleText.split('\n');const w=1400,h=lines.length*110+100;let s=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="white"/><style>text{font-family:Arial;fill:#555}.guide{stroke:#dfe3ea}</style>`;lines.forEach((line,i)=>{const y=70+i*110;s+=`<text x="35" y="${y-35}" font-size="13">Zeile ${i+1}: genau diese Zeile abschreiben</text><line class="guide" x1="35" y1="${y+12}" x2="${w-35}" y2="${y+12}"/><text x="35" y="${y}" font-size="17">${esc(line)}</text>`});return s+'</svg>'}
 
-function renderText(text){const size=+$('#size').value,lh=+$('#lineHeight').value,variation=+$('#variation').value,lines=text.replace(/\r/g,'').split('\n');const maxChars=Math.max(35,...lines.map(x=>x.length)),width=Math.min(1600,Math.max(760,maxChars*size*.58+80)),height=Math.max(420,lines.length*size*lh+70);const svg=el('svg');svg.setAttribute('xmlns','http://www.w3.org/2000/svg');svg.setAttribute('width',width);svg.setAttribute('height',height);svg.setAttribute('viewBox',`0 0 ${width} ${height}`);let y=size+18;
-  lines.forEach(line=>{let x=28;for(const ch of [...line]){if(ch===' '){x+=size*.36;continue}const g=el('g');g.classList.add('glyph');g.dataset.char=ch;const rot=(Math.random()-.5)*variation,sc=1+(Math.random()-.5)*variation/100;g.setAttribute('transform',`translate(${x} ${y-size}) rotate(${rot}) scale(${sc})`);const list=glyphs.get(ch);if(list?.length){const img=el('image');img.setAttribute('href',list[Math.floor(Math.random()*list.length)]);img.setAttribute('x',0);img.setAttribute('y',0);img.setAttribute('width',size*.78);img.setAttribute('height',size);img.setAttribute('preserveAspectRatio','xMidYMid meet');g.appendChild(img)}else{const t=el('text');t.textContent=ch;t.setAttribute('font-size',size);t.setAttribute('fill','#111');t.setAttribute('dominant-baseline','alphabetic');g.appendChild(t)}svg.appendChild(g);x+=measure(ch,size)+size*.03}y+=size*lh});return svg}
-function measure(ch,size){if('ilI.,:;!|'.includes(ch))return size*.28;if('mwMW@'.includes(ch))return size*.82;return size*.55}
-function el(n){return document.createElementNS('http://www.w3.org/2000/svg',n)}
+$('#generate').onclick=()=>{const text=$('#textInput').value.trim();if(!text){alert('Bitte zuerst Text eingeben.');return}if(!sampleImage){alert('Bitte zuerst deine Handschriftprobe hochladen.');return}generatedSvg=renderText(text);const paper=$('#paper');paper.classList.remove('empty');paper.innerHTML='';paper.appendChild(generatedSvg);$('#downloadSvg').disabled=false;$('#downloadPng').disabled=false;document.querySelectorAll('.step')[0].classList.remove('active');document.querySelectorAll('.step')[1].classList.add('active');document.querySelectorAll('.step')[2].classList.add('active');wireDelete(generatedSvg)};
+
+function findGlyph(ch){if(glyphs.has(ch))return glyphs.get(ch);const lower=ch.toLowerCase(),upper=ch.toUpperCase();if(glyphs.has(lower))return glyphs.get(lower);if(glyphs.has(upper))return glyphs.get(upper);return null}
+function renderText(text){const size=+$('#size').value,lh=+$('#lineHeight').value,variation=+$('#variation').value;const lines=text.replace(/\r/g,'').split('\n');const maxChars=Math.max(35,...lines.map(x=>x.length));const width=Math.min(1600,Math.max(760,maxChars*size*.58+80));const height=Math.max(420,lines.length*size*lh+70);const svg=el('svg');svg.setAttribute('xmlns','http://www.w3.org/2000/svg');svg.setAttribute('width',width);svg.setAttribute('height',height);svg.setAttribute('viewBox',`0 0 ${width} ${height}`);let y=size+18;
+lines.forEach(line=>{let x=28;for(const ch of [...line]){if(ch===' '){x+=size*.36;continue}const g=el('g');g.classList.add('glyph');g.dataset.char=ch;const rot=(Math.random()-.5)*variation,scale=1+(Math.random()-.5)*variation/100;g.setAttribute('transform',`translate(${x} ${y-size}) rotate(${rot}) scale(${scale})`);const list=findGlyph(ch);if(list?.length){const img=el('image');img.setAttribute('href',list[Math.floor(Math.random()*list.length)]);img.setAttribute('x',0);img.setAttribute('y',0);img.setAttribute('width',size*.72);img.setAttribute('height',size);img.setAttribute('preserveAspectRatio','xMidYMid meet');g.appendChild(img)}else{const t=el('text');t.textContent=ch;t.setAttribute('font-size',size);t.setAttribute('dominant-baseline','alphabetic');t.setAttribute('fill','#111');g.appendChild(t)}svg.appendChild(g);x+=measure(ch,size)+size*.03}y+=size*lh});return svg}
+function measure(ch,size){if('ilI.,!|'.includes(ch))return size*.28;if('mwMW@'.includes(ch))return size*.82;return size*.55}
+function el(name){return document.createElementNS('http://www.w3.org/2000/svg',name)}
 function esc(s){return s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
 function wireDelete(svg){svg.addEventListener('click',e=>{const g=e.target.closest('.glyph');if(g){document.querySelectorAll('.glyph.selected').forEach(x=>x.classList.remove('selected'));g.classList.add('selected')}})}
 document.addEventListener('keydown',e=>{if((e.key==='Delete'||e.key==='Backspace')&&document.querySelector('.glyph.selected')){e.preventDefault();document.querySelector('.glyph.selected').remove()}});
