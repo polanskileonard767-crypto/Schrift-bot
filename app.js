@@ -6,13 +6,48 @@ function bindRange(id,out){const e=$(id),o=$(out);const f=()=>o.value=e.value;e.
 bindRange('#size','#sizeOut');bindRange('#lineHeight','#lineOut');bindRange('#variation','#varOut');
 
 $('#copySample').onclick=async()=>{const text=sampleText;try{await navigator.clipboard.writeText(text)}catch{const a=document.createElement('textarea');a.value=text;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}$('#copySample').textContent='✓ Kopiert';setTimeout(()=>$('#copySample').textContent='Text kopieren',1600)};
-$('#sampleInput').addEventListener('change',e=>{const f=e.target.files?.[0];if(f)loadSample(f)});
+
+// Robust file upload for Android, iPad/iPhone and desktop browsers.
+const sampleInput=$('#sampleInput');
+sampleInput.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)loadSample(f)});
 const dz=$('#dropZone');
 ['dragenter','dragover'].forEach(x=>dz.addEventListener(x,e=>{e.preventDefault();dz.style.borderColor='#6366f1'}));
 ['dragleave','drop'].forEach(x=>dz.addEventListener(x,e=>{e.preventDefault();dz.style.borderColor=''}));
-dz.addEventListener('drop',e=>{const f=e.dataTransfer.files?.[0];if(f?.type.startsWith('image/'))loadSample(f)});
+dz.addEventListener('drop',e=>{const f=e.dataTransfer?.files?.[0];if(f?.type?.startsWith('image/'))loadSample(f)});
 
-function loadSample(file){const img=new Image();img.onload=()=>{sampleImage=img;$('#previewWrap').classList.remove('hidden');const c=$('#sampleCanvas'),ctx=c.getContext('2d');const scale=Math.min(1,1100/img.width);c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);ctx.drawImage(img,0,0,c.width,c.height);$('#sampleStatus').textContent=`${img.width}×${img.height} · analysiere…`;analyzeSample()};img.src=URL.createObjectURL(file)}
+function loadSample(file){
+  if(!file||file.size===0){showUploadError('Die Datei ist leer oder konnte nicht gelesen werden.');return}
+  $('#previewWrap').classList.remove('hidden');
+  $('#sampleStatus').textContent='Bild wird geladen…';
+  $('#analysisText').textContent='Bild wird verarbeitet…';
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      sampleImage=img;
+      const c=$('#sampleCanvas'),ctx=c.getContext('2d',{willReadFrequently:true});
+      const scale=Math.min(1,1100/img.width);
+      c.width=Math.max(1,Math.round(img.width*scale));
+      c.height=Math.max(1,Math.round(img.height*scale));
+      ctx.clearRect(0,0,c.width,c.height);
+      ctx.drawImage(img,0,0,c.width,c.height);
+      $('#sampleStatus').textContent=`✓ ${img.width}×${img.height} · analysiere…`;
+      analyzeSample();
+    };
+    img.onerror=()=>showUploadError('Dieses Bildformat kann der Browser nicht öffnen. Bitte als JPG oder PNG auswählen.');
+    img.src=reader.result;
+  };
+  reader.onerror=()=>showUploadError('Das Bild konnte nicht gelesen werden. Bitte erneut auswählen.');
+  reader.readAsDataURL(file);
+}
+
+function showUploadError(message){
+  $('#previewWrap').classList.remove('hidden');
+  $('#sampleStatus').textContent='⚠️ Upload fehlgeschlagen';
+  $('#analysisText').textContent=message;
+  sampleImage=null;
+  glyphs=new Map();
+}
 
 function analyzeSample(){
   if(!sampleImage)return;
@@ -28,7 +63,7 @@ function analyzeSample(){
   const bands=pickBands(merged,expectedLines.length);
   let total=0;
   bands.forEach((band,li)=>{const expected=[...(expectedLines[li]||'')].filter(c=>c!==' ');if(!expected.length)return;const xs=[];for(let x=0;x<width;x++){let n=0;for(let y=band[0];y<=band[1];y++)n+=ink[y*width+x];xs.push(n)}const seg=splitColumns(xs,band[0],band[1]);const usable=seg.length>=expected.length?compressToCount(seg,expected.length):adaptiveSlots(xs,expected.length);for(let i=0;i<Math.min(expected.length,usable.length);i++){const crop=makeCrop(canvas,usable[i][0],band[0],usable[i][1],band[1]);if(!crop)continue;const ch=expected[i];if(!glyphs.has(ch))glyphs.set(ch,[]);glyphs.get(ch).push(crop);total++}});
-  const unique=glyphs.size;$('#sampleStatus').textContent=`${unique} Zeichen erkannt`;
+  const unique=glyphs.size;$('#sampleStatus').textContent=`✓ ${unique} Zeichen erkannt`;
   $('#analysisText').textContent=total?`Analyse fertig: ${unique} Zeichen aus deiner Probe. Sie werden beim Erzeugen verwendet.`:'Analyse konnte die Probe nicht sauber erkennen. Bitte gerade fotografieren und möglichst schwarzen Stift auf weißem Hintergrund verwenden.';
 }
 function pickBands(rows,count){if(rows.length===count)return rows;const out=[];if(rows.length>count){for(let i=0;i<count;i++){const a=Math.floor(i*rows.length/count),b=Math.max(a,Math.floor((i+1)*rows.length/count)-1);out.push([rows[a][0],rows[b][1]])}}else return rows;return out}
