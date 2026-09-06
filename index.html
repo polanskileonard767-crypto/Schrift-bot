@@ -11,9 +11,9 @@
   <main class="app">
     <header>
       <div>
-        <span class="eyebrow">SCHRIFTBOT · V1.2</span>
+        <span class="eyebrow">SCHRIFTBOT · V1.2 AI</span>
         <h1>Deine Schrift. Dein Text.</h1>
-        <p>Schreibprobe auf dem Tablet → Foto/Screenshot hochladen → Text in deiner Schrift erzeugen.</p>
+        <p>Schreibprobe auf dem Tablet → Bild hochladen → KI analysiert deine Handschrift → Text erzeugen.</p>
       </div>
       <button id="downloadTemplate" class="ghost">✍️ Vorlage</button>
     </header>
@@ -72,8 +72,16 @@ Sein blauer Rucksack liegt neben dem grünen Fahrrad.</div>
     </section>
 
     <section class="card">
+      <h2>🤖 KI-Handschrift</h2>
+      <p class="muted">Optional: DeepSeek Vision kann die Zeichenpositionen in deiner Schreibprobe analysieren. Der API-Key wird nur in dieser Browser-Sitzung gehalten und nicht im Repository gespeichert.</p>
+      <input id="deepseekKey" type="password" autocomplete="off" placeholder="DeepSeek API-Key (sk-…)" style="width:100%;box-sizing:border-box;margin:10px 0;padding:12px;border-radius:12px;border:1px solid #d7dbe3">
+      <button id="aiGenerate" class="primary">🤖 Mit DeepSeek analysieren & erzeugen</button>
+      <div class="analysis" style="margin-top:10px"><span class="analysis-dot"></span><span id="aiStatus">Noch keine KI-Analyse.</span></div>
+    </section>
+
+    <section class="card">
       <div class="result-head">
-        <div><h2>3. Ergebnis</h2><p class="muted">Jeder Buchstabe bleibt ein eigenes SVG-Element.</p></div>
+        <div><h2>3. Ergebnis</h2><p class="muted">Handschriftliche Zeichen werden als Bildbausteine gesetzt.</p></div>
         <div class="actions">
           <button id="clearResult" class="ghost">Löschen</button>
           <button id="downloadSvg" class="primary" disabled>SVG speichern</button>
@@ -86,5 +94,6 @@ Sein blauer Rucksack liegt neben dem grünen Fahrrad.</div>
     </section>
   </main>
   <script src="app.js"></script>
+  <script src="deepseek.js"></script>
 </body>
 </html>
