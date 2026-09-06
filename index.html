@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#111827">
   <title>SchriftBot</title>
   <link rel="stylesheet" href="style.css">
@@ -11,9 +11,9 @@
   <main class="app">
     <header>
       <div>
-        <span class="eyebrow">SCHRIFTBOT · V1</span>
+        <span class="eyebrow">SCHRIFTBOT · V1.1</span>
         <h1>Deine Schrift. Dein Text.</h1>
-        <p>Handschriftprobe laden → Text einfügen → als editierbares SVG exportieren.</p>
+        <p>Schreibprobe auf dem Tablet → Foto/Screenshot hochladen → Text in deiner Schrift erzeugen.</p>
       </div>
       <button id="downloadTemplate" class="ghost">✍️ Vorlage</button>
     </header>
@@ -27,27 +27,35 @@
     <section class="card sample-task">
       <div class="result-head">
         <div>
-          <h2>✍️ Dein Schreibtext</h2>
-          <p class="muted">Schreibe diesen Text auf deinem Tablet mit dem S Pen ab. So bekommt SchriftBot eine Probe deiner echten Handschrift.</p>
+          <h2>✍️ Schreibprobe</h2>
+          <p class="muted">Schreibe den Text auf dem Tablet mit dem S Pen ab. Halte die Zeilenumbrüche möglichst genau ein.</p>
         </div>
         <button id="copySample" class="ghost">Text kopieren</button>
       </div>
-      <div class="sample-text" id="sampleText">Jeden Morgen beginnt ein neues Abenteuer. Felix fährt mit dem Zug nach Zürich und kauft dort zwölf Äpfel, Öl und süße Brötchen. Um 8:15 Uhr schreibt er eine kurze Nachricht: „Hallo, wie geht es dir?“ Danach übt er Zahlen, Zeichen und Buchstaben. Die schnelle Katze springt über den Zaun, während Max leise lacht und seinen blauen Rucksack trägt.</div>
-      <p class="hint">💡 Tipp: Schreibe möglichst normal und in deiner üblichen Größe. Nicht extra schön schreiben.</p>
+      <div class="sample-text" id="sampleText">Jeden Morgen beginnt ein neues Abenteuer.
+Felix fährt mit dem Zug nach Zürich und kauft dort zwölf Äpfel, Öl und süße Brötchen.
+Um 8:15 Uhr schreibt er eine kurze Nachricht: „Hallo, wie geht es dir?“
+Danach übt er Zahlen, Zeichen und Buchstaben.
+Die schnelle Katze springt über den Zaun, während Max leise lacht.
+Sein blauer Rucksack liegt neben dem grünen Fahrrad.</div>
+      <p class="hint">💡 Normal schreiben, nicht extra schön. Am besten mit schwarzer Tinte auf weißem Hintergrund.</p>
     </section>
 
     <section class="card">
       <h2>1. Handschriftprobe</h2>
-      <p class="muted">Mach danach ein Foto oder einen Screenshot deiner geschriebenen Probe und lade ihn hier hoch.</p>
+      <p class="muted">Lade danach einen Screenshot oder ein Foto deiner geschriebenen Probe hoch.</p>
       <label class="upload" id="dropZone">
         <input id="sampleInput" type="file" accept="image/*">
         <span class="upload-icon">↑</span>
-        <strong>Bild hier ablegen oder antippen</strong>
-        <small>PNG, JPG oder WEBP</small>
+        <strong>Bild auswählen oder hier ablegen</strong>
+        <small>PNG, JPG oder WEBP · direkt auf dem Tablet</small>
       </label>
       <div class="preview-wrap hidden" id="previewWrap">
         <canvas id="sampleCanvas"></canvas>
         <div class="sample-status" id="sampleStatus">Probe geladen</div>
+      </div>
+      <div class="analysis" id="analysisBox">
+        <span class="analysis-dot"></span><span id="analysisText">Noch keine Schriftprobe analysiert.</span>
       </div>
     </section>
 
@@ -59,12 +67,13 @@
         <label>Zeilenabstand <input id="lineHeight" type="range" min="1" max="2" step="0.05" value="1.35"><output id="lineOut">1.35</output></label>
         <label>Variation <input id="variation" type="range" min="0" max="8" step="0.5" value="2"><output id="varOut">2</output></label>
       </div>
-      <button id="generate" class="primary">✍️ Handschrift erzeugen</button>
+      <button id="generate" class="primary">✍️ Mit meiner Schrift erzeugen</button>
+      <p class="hint">Die V1.1 nutzt erkannte Ausschnitte deiner Schreibprobe als einzelne Buchstaben. Fehlende Zeichen werden als Fallback dargestellt.</p>
     </section>
 
     <section class="card">
       <div class="result-head">
-        <div><h2>3. Ergebnis</h2><p class="muted">Jeder Buchstabe wird als eigenes SVG-Element angelegt.</p></div>
+        <div><h2>3. Ergebnis</h2><p class="muted">Jeder Buchstabe bleibt ein eigenes SVG-Element.</p></div>
         <div class="actions">
           <button id="clearResult" class="ghost">Löschen</button>
           <button id="downloadSvg" class="primary" disabled>SVG speichern</button>
@@ -72,7 +81,7 @@
         </div>
       </div>
       <div id="paper" class="paper empty"><span>Noch kein Ergebnis</span></div>
-      <p class="hint">💡 Im Ergebnis kannst du einzelne Buchstaben anklicken und mit der Entf-Taste löschen.</p>
+      <p class="hint">💡 Auf einen Buchstaben tippen und Entf/Backspace drücken, um ihn zu löschen.</p>
     </section>
   </main>
   <script src="app.js"></script>
