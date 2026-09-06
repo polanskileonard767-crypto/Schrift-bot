@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>SchriftBot</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <span class="eyebrow">SCHRIFTBOT · V1</span>
+        <h1>Deine Schrift. Dein Text.</h1>
+        <p>Handschriftprobe laden → Text einfügen → als editierbares SVG exportieren.</p>
+      </div>
+      <button id="downloadTemplate" class="ghost">✍️ Vorlage</button>
+    </header>
+
+    <section class="steps">
+      <div class="step active"><b>1</b><span>Schrift lernen</span></div>
+      <div class="step"><b>2</b><span>Text eingeben</span></div>
+      <div class="step"><b>3</b><span>Exportieren</span></div>
+    </section>
+
+    <section class="card">
+      <h2>1. Handschriftprobe</h2>
+      <p class="muted">Am besten die SchriftBot-Vorlage ausdrucken, jeden Buchstaben einmal schreiben und als Foto hochladen.</p>
+      <label class="upload" id="dropZone">
+        <input id="sampleInput" type="file" accept="image/*">
+        <span class="upload-icon">↑</span>
+        <strong>Bild hier ablegen oder antippen</strong>
+        <small>PNG, JPG oder WEBP</small>
+      </label>
+      <div class="preview-wrap hidden" id="previewWrap">
+        <canvas id="sampleCanvas"></canvas>
+        <div class="sample-status" id="sampleStatus">Probe geladen</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Text</h2>
+      <textarea id="textInput" rows="7" placeholder="Füge hier deinen Text ein …"></textarea>
+      <div class="controls">
+        <label>Größe <input id="size" type="range" min="24" max="90" value="48"><output id="sizeOut">48</output></label>
+        <label>Zeilenabstand <input id="lineHeight" type="range" min="1" max="2" step="0.05" value="1.35"><output id="lineOut">1.35</output></label>
+        <label>Variation <input id="variation" type="range" min="0" max="8" step="0.5" value="2"><output id="varOut">2</output></label>
+      </div>
+      <button id="generate" class="primary">✍️ Handschrift erzeugen</button>
+    </section>
+
+    <section class="card">
+      <div class="result-head">
+        <div><h2>3. Ergebnis</h2><p class="muted">Jeder Buchstabe wird als eigenes SVG-Element angelegt.</p></div>
+        <div class="actions">
+          <button id="clearResult" class="ghost">Löschen</button>
+          <button id="downloadSvg" class="primary" disabled>SVG speichern</button>
+          <button id="downloadPng" class="ghost" disabled>PNG speichern</button>
+        </div>
+      </div>
+      <div id="paper" class="paper empty"><span>Noch kein Ergebnis</span></div>
+      <p class="hint">💡 Im Ergebnis kannst du einzelne Buchstaben anklicken und mit der Entf-Taste löschen.</p>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
